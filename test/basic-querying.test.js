@@ -14,7 +14,8 @@ describe('basic-querying', function () {
       birthday: {type: Date, index: true},
       role: {type: String, index: true},
       order: {type: Number, index: true, sort: true},
-      vip: {type: Boolean}
+      vip: {type: Boolean},
+      addressLoc: {type: 'GeoPoint'}
     });
 
     db.automigrate(done);
@@ -441,6 +442,48 @@ describe('basic-querying', function () {
         done();
       });
     });
+    
+    it('should support nested GeoPoint near queries', function(done) {
+      User.find({
+        where: {and: [{addressLoc: {near: "29.9,-90.07"}}, {vip: true}]}
+      }, function(err, users){
+        if (err) return done(err);
+        users.should.have.property('length', 2);
+        users[0].addressLoc.should.not.equal(null);
+        done();
+      });
+    });
+    
+    it('should support very nested GeoPoint near queries', function(done) {
+      User.find({
+        where: {and: [
+          {and: [{addressLoc: {near: "29.9,-90.07"}}, {order: 2}]}, 
+          {vip: true}
+        ]}
+      }, function(err, users){
+        if (err) return done(err);
+        users.should.have.property('length', 1);
+        users[0].addressLoc.should.not.equal(null);
+        done();
+      });
+    });
+    
+    it('should support multiple GeoPoint near queries', function(done) {
+      User.find({
+        where: {and: [
+          {or: [
+            {addressLoc: {near: "29.9,-90.04", maxDistance: 300}}, 
+            {addressLoc: {near: "22.97, -88.03", maxDistance: 300}}
+          ]}, 
+          {vip: true}
+        ]}
+      }, function(err, users){
+        if (err) return done(err);
+        users.should.have.property('length', 2);
+        users[0].addressLoc.should.not.equal(null);
+        done();
+      });
+    });
 
 
     it('should only include fields as specified', function (done) {
@@ -482,7 +525,7 @@ describe('basic-querying', function () {
       }
 
       sample({name: true}).expect(['name']);
-      sample({name: false}).expect(['id', 'seq', 'email', 'role', 'order', 'birthday', 'vip']);
+      sample({name: false}).expect(['id', 'seq', 'email', 'role', 'order', 'birthday', 'vip', 'addressLoc']);
       sample({name: false, id: true}).expect(['id']);
       sample({id: true}).expect(['id']);
       sample('id').expect(['id']);
@@ -798,7 +841,8 @@ function seed(done) {
       role: 'lead',
       birthday: new Date('1980-12-08'),
       order: 2,
-      vip: true
+      vip: true,
+      addressLoc: {lat: 29.97, lng: -90.03}
     },
     {
       seq: 1,
@@ -807,9 +851,16 @@ function seed(done) {
       role: 'lead',
       birthday: new Date('1942-06-18'),
       order: 1,
-      vip: true
+      vip: true,
+      addressLoc: {lat: 22.97, lng: -88.03}
     },
-    {seq: 2, name: 'George Harrison', order: 5, vip: false},
+    {
+      seq: 2, 
+      name: 'George Harrison', 
+      order: 5, 
+      vip: false, 
+      addressLoc: {lat: 22.7, lng: -89.03}
+    },
     {seq: 3, name: 'Ringo Starr', order: 6, vip: false},
     {seq: 4, name: 'Pete Best', order: 4},
     {seq: 5, name: 'Stuart Sutcliffe', order: 3, vip: true}
